@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Campaign &amp; Inbox Platform</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <span class="brand-text">MedCross<b>WhatsApp Bulk Messaging</b></span>
+    </div>
+    <nav class="nav">
+      <a href="#/dashboard" data-route="dashboard">📊 Dashboard</a>
+      <a href="#/contacts" data-route="contacts">👥 Contacts</a>
+      <a href="#/campaigns" data-route="campaigns">📣 Campaigns</a>
+      <a href="#/inbox" data-route="inbox">💬 Inbox</a>
+      <a href="#/bulk" data-route="bulk">📤 Bulk Replies</a>
+      <a href="#/templates" data-route="templates">🧩 Templates</a>
+      <a href="#/logs" data-route="logs">📜 Message Logs</a>
+      <a href="#/settings" data-route="settings">⚙️ Settings</a>
+    </nav>
+    <div class="sidebar-footer">WhatsApp Cloud API</div>
+  </aside>
+
+  <main class="content">
+    <header class="topbar">
+      <h1 id="page-title">Dashboard</h1>
+      <div id="topbar-actions"></div>
+    </header>
+    <div id="view" class="view"></div>
+  </main>
+
+</div>
+
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="js/api.js" defer></script>
+<script src="js/components.js" defer></script>
+<script src="js/views-registry.js" defer></script>
+<script src="js/views/dashboard.js" defer></script>
+<script src="js/views/contacts.js" defer></script>
+<script src="js/views/campaigns.js" defer></script>
+<script src="js/views/inbox.js" defer></script>
+<script src="js/views/bulk.js" defer></script>
+<script src="js/views/templates.js" defer></script>
+<script src="js/views/logs.js" defer></script>
+<script src="js/views/settings.js" defer></script>
+<script src="js/router.js" defer></script>
+</body>
+</html>
