@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
+from pathlib import Path
 
 import config
 from database import init_db, db_cursor, now
@@ -79,4 +80,5 @@ app.include_router(webhook.router)
 
 # Serve the frontend (single-page app) as static files, mounted last so /api and
 # /webhook routes above take priority.
-app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
+FRONTEND_DIR = str(Path(__file__).resolve().parent.parent / "frontend")
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

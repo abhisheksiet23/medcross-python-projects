@@ -1,5 +1,14 @@
 const API = (() => {
-  const BASE = ""; // served from the same origin as the API
+    const BASE = (() => {
+  try {
+    const src = document.currentScript && document.currentScript.src;
+    if (src) {
+      const path = new URL(src).pathname;
+      return path.replace(/js\/api\.js$/, "").replace(/\/$/, "");
+    }
+  } catch (_) {}
+  return "";
+})(); // served from the same origin as the API
 
   async function handle(resp) {
     if (!resp.ok) {
