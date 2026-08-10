@@ -38,6 +38,7 @@ def create_group(body: GroupIn):
 def delete_group(group_id: int):
     with db_cursor() as cur:
         cur.execute("UPDATE contacts SET group_id=NULL WHERE group_id=?", (group_id,))
+        cur.execute("UPDATE campaigns SET group_id=NULL WHERE group_id=?", (group_id,))
         cur.execute("DELETE FROM groups WHERE id=?", (group_id,))
     return {"status": "deleted"}
 

@@ -23,6 +23,8 @@ WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v21.0")
 # --- Storage ---
 DB_PATH = str(BASE_DIR / "platform.db")
 LOG_PATH = str(BASE_DIR / "platform.log")
+MEDIA_DIR = BASE_DIR / "media"
+MEDIA_DIR.mkdir(exist_ok=True)
 
 # --- App ---
 APP_NAME = "WhatsApp Campaign & Inbox Platform"

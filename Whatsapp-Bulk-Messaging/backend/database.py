@@ -4,7 +4,7 @@ Kept intentionally simple (no ORM) so it's easy to read and extend.
 """
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from config import DB_PATH
 
 SCHEMA = """
@@ -71,7 +71,10 @@ CREATE TABLE IF NOT EXISTS messages (
     direction     TEXT NOT NULL,      -- 'in' or 'out'
     wa_message_id TEXT,
     body          TEXT,
-    message_type  TEXT DEFAULT 'text',
+    message_type  TEXT DEFAULT 'text',  -- text/image/video/audio/document/sticker/reaction/interactive/...
+    media_url     TEXT,               -- local /media/... path to a downloaded image/video/audio/document/sticker
+    media_mime_type TEXT,
+    reaction_emoji TEXT,              -- set when message_type='reaction'
     template_name TEXT,
     status        TEXT DEFAULT 'sent',  -- sent/delivered/read/failed/received
     created_at    TEXT NOT NULL
@@ -92,7 +95,23 @@ def init_db() -> None:
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA)
     conn.commit()
+    _migrate(conn)
     conn.close()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns that might be missing on a database created before this version
+    (SQLite's CREATE TABLE IF NOT EXISTS doesn't add columns to an existing table)."""
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
+    additions = {
+        "media_url": "TEXT",
+        "media_mime_type": "TEXT",
+        "reaction_emoji": "TEXT",
+    }
+    for col, coltype in additions.items():
+        if col not in existing:
+            conn.execute(f"ALTER TABLE messages ADD COLUMN {col} {coltype}")
+    conn.commit()
 
 
 def get_conn() -> sqlite3.Connection:
@@ -115,7 +134,22 @@ def db_cursor():
 
 
 def now() -> str:
-    return datetime.now().isoformat()
+    """UTC timestamp, matching the format the frontend sends via Date.toISOString().
+    Using UTC everywhere (not server-local time) is what makes scheduled-campaign
+    comparisons correct regardless of what timezone the server happens to run in."""
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def parse_iso(ts: str) -> datetime:
+    """Parse an ISO timestamp into a timezone-aware UTC datetime, for safe comparisons.
+    Handles both our own 'Z'-suffixed UTC strings and older naive strings that may
+    still exist in a database created before this fix."""
+    if ts.endswith("Z"):
+        ts = ts[:-1] + "+00:00"
+    dt = datetime.fromisoformat(ts)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def get_setting(key: str, default: str = "") -> str:

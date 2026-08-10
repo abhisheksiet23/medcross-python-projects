@@ -20,6 +20,10 @@ Views.inbox = {
     await this.loadConversations();
   },
 
+  previewIcon(type) {
+    return { image: "📷 ", video: "🎥 ", audio: "🎤 ", document: "📄 ", sticker: "🌟 ", reaction: "" }[type] || "";
+  },
+
   async loadConversations(q) {
     const params = q ? `?q=${encodeURIComponent(q)}` : "";
     const conversations = await API.get(`/api/inbox/conversations${params}`);
@@ -31,12 +35,41 @@ Views.inbox = {
           <span>${escapeHtml(c.name || c.phone)}</span>
           ${c.unread_count > 0 ? `<span class="unread-dot">${c.unread_count}</span>` : ""}
         </div>
-        <div class="preview">${c.last_direction === "out" ? "You: " : ""}${escapeHtml((c.last_message || "").slice(0, 50))}</div>
+        <div class="preview">${c.last_direction === "out" ? "You: " : ""}${this.previewIcon(c.last_message_type)}${escapeHtml((c.last_message || "").slice(0, 50))}</div>
       </div>`).join("") : `<div class="empty">No conversations yet</div>`;
 
     wrap.querySelectorAll("[data-contact]").forEach((el) => {
       el.onclick = () => this.openThread(Number(el.dataset.contact));
     });
+  },
+
+  renderMessageBody(m) {
+    // media_url is only present once the file was successfully downloaded from
+    // WhatsApp's Media API; if it's missing (download failed, or it's not a media
+    // message at all) we fall back to whatever text/placeholder is in `body`.
+    if (m.message_type === "reaction") {
+      return `<div style="font-size:22px">${escapeHtml(m.reaction_emoji || "👍")}</div><div class="text-dim" style="font-size:11px">reacted to a message</div>`;
+    }
+    if (m.media_url) {
+      if (m.message_type === "image" || m.message_type === "sticker") {
+        return `<img src="${escapeHtml(m.media_url)}" style="max-width:260px;border-radius:8px;display:block">${m.body ? `<div style="margin-top:6px">${escapeHtml(m.body)}</div>` : ""}`;
+      }
+      if (m.message_type === "video") {
+        return `<video src="${escapeHtml(m.media_url)}" controls style="max-width:260px;border-radius:8px;display:block">${m.body ? `<div style="margin-top:6px">${escapeHtml(m.body)}</div>` : ""}`;
+      }
+      if (m.message_type === "audio") {
+        return `<audio src="${escapeHtml(m.media_url)}" controls style="max-width:260px"></audio>`;
+      }
+      if (m.message_type === "document") {
+        const filename = m.body || "Document";
+        return `<a href="${escapeHtml(m.media_url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;text-decoration:underline">📄 ${escapeHtml(filename)}</a>`;
+      }
+    }
+    if (["image", "video", "audio", "document", "sticker"].includes(m.message_type)) {
+      // A media message where the download failed or hasn't completed
+      return `<span class="text-dim">${this.previewIcon(m.message_type)}${escapeHtml(m.body || "Media unavailable")}</span>`;
+    }
+    return escapeHtml(m.body);
   },
 
   async openThread(contactId) {
@@ -52,12 +85,14 @@ Views.inbox = {
       <div class="thread-messages" id="thread-messages">
         ${data.messages.length ? data.messages.map((m) => `
           <div class="bubble ${m.direction}">
-            ${escapeHtml(m.body)}
+            ${this.renderMessageBody(m)}
             <span class="meta">${m.direction === "out" ? badge(m.status) : ""} ${timeOnly(m.created_at)}</span>
           </div>`).join("") : `<div class="empty">No messages yet</div>`}
       </div>
       <div class="thread-input">
-        <input id="reply-text" placeholder="Type a message…">
+        <button class="btn secondary" id="attach-media" title="Attach image, document, audio, or video">📎</button>
+        <input type="file" id="media-file-input" style="display:none">
+        <input id="reply-text" placeholder="Type a message… (or attach a file below)">
         <button class="btn" id="send-reply">Send</button>
       </div>
     `;
@@ -79,6 +114,34 @@ Views.inbox = {
     document.getElementById("reply-text").addEventListener("keydown", (e) => {
       if (e.key === "Enter") send();
     });
+
+    document.getElementById("attach-media").onclick = () => {
+      document.getElementById("media-file-input").click();
+    };
+    document.getElementById("media-file-input").onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const captionInput = document.getElementById("reply-text");
+      const caption = captionInput.value.trim();
+      const fd = new FormData();
+      fd.append("file", file);
+      if (caption) fd.append("caption", caption);
+      const btn = document.getElementById("attach-media");
+      btn.disabled = true;
+      btn.textContent = "…";
+      try {
+        await API.upload(`/api/inbox/conversations/${contactId}/send-media`, fd);
+        captionInput.value = "";
+        this.openThread(contactId);
+        this.loadConversations();
+      } catch (err) {
+        toastError(err);
+        btn.disabled = false;
+        btn.textContent = "📎";
+      } finally {
+        e.target.value = "";
+      }
+    };
 
     // clear unread indicator locally
     const item = this.state.conversations.find((c) => c.contact_id === contactId);

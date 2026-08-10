@@ -1,4 +1,6 @@
 import logging
+import mimetypes
+from pathlib import Path
 from fastapi import APIRouter, Request, Response, HTTPException
 from database import db_cursor, now, get_setting
 import config
@@ -45,13 +47,44 @@ def _get_or_create_contact(cur, phone: str) -> int:
     return cur.lastrowid
 
 
+def _download_and_store_media(media_id: str, mime_type: str | None, filename: str | None):
+    """Resolves a WhatsApp media ID to a CDN URL, downloads the bytes, and saves them
+    under config.MEDIA_DIR so the frontend can display/link to them directly.
+    Returns (media_url, mime_type) — media_url is a local "/media/..." path, or
+    (None, None) if the download failed for any reason (network issue, expired token,
+    etc.) — callers fall back to showing the text placeholder in that case."""
+    try:
+        info = whatsapp.get_media_info(media_id)
+        content, content_type = whatsapp.download_media_bytes(info["url"])
+        real_mime = content_type or info.get("mime_type") or mime_type or "application/octet-stream"
+
+        ext = Path(filename).suffix if filename else ""
+        if not ext:
+            ext = mimetypes.guess_extension(real_mime.split(";")[0].strip()) or ""
+        safe_name = f"{media_id}{ext}"
+
+        (config.MEDIA_DIR / safe_name).write_bytes(content)
+        return f"/media/{safe_name}", real_mime
+    except Exception as e:
+        logger.error("Failed to download media %s: %s", media_id, e)
+        return None, None
+
+
 def _handle_incoming_message(event: dict) -> None:
+    media_url, media_mime_type = (None, None)
+    if event.get("media_id"):
+        media_url, media_mime_type = _download_and_store_media(
+            event["media_id"], event.get("mime_type"), event.get("filename")
+        )
+
     with db_cursor() as cur:
         contact_id = _get_or_create_contact(cur, event["phone"])
         cur.execute("""
-            INSERT INTO messages (contact_id, direction, wa_message_id, body, message_type, status, created_at)
-            VALUES (?,?,?,?,?,?,?)
-        """, (contact_id, "in", event["wa_message_id"], event["text"], event["msg_type"], "received", now()))
+            INSERT INTO messages (contact_id, direction, wa_message_id, body, message_type,
+                                  media_url, media_mime_type, reaction_emoji, status, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (contact_id, "in", event["wa_message_id"], event["text"], event["msg_type"],
+              media_url, media_mime_type, event.get("reaction_emoji"), "received", now()))
 
         # If this contact is a recipient of any campaign, mark them as replied
         cur.execute("""
