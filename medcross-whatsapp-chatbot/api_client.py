@@ -9,7 +9,7 @@ Add new centers here as the clinic expands.
 import logging
 import requests
 from datetime import datetime, timedelta
-from config import BASE_URL, CHATBOT_SOURCE_ID
+from config import BASE_URL, CHATBOT_SOURCE_ID, auth_header
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def _resolve_center(center_id: int) -> tuple[int, int]:
 def _get(endpoint: str, params: dict = None) -> dict:
     url = f"{BASE_URL}{endpoint}"
     logger.info("API GET  → %s | params: %s", endpoint, params)
-    resp = requests.get(url, params=params, timeout=10)
+    resp = requests.get(url, params=params, timeout=10, headers = auth_header)
     resp.raise_for_status()
     result = resp.json()
     logger.info("API GET  ← %s | status: %s | response: %s",
@@ -53,7 +53,7 @@ def _get(endpoint: str, params: dict = None) -> dict:
 def _post(endpoint: str, payload: dict) -> dict:
     url = f"{BASE_URL}{endpoint}"
     logger.info("API POST → %s | payload: %s", endpoint, payload)
-    resp = requests.post(url, json=payload, timeout=10)
+    resp = requests.post(url, json=payload, timeout=10, headers = auth_header)
     resp.raise_for_status()
     result = resp.json()
     logger.info("API POST ← %s | status: %s | response: %s",

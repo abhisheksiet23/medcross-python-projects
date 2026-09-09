@@ -7,7 +7,7 @@ from openai import OpenAI
 from config import (OPENAI_API_KEY, OPENAI_MODEL,
                     CLINIC_NAME, CLINIC_PHONE, CLINIC_EMAIL, CLINIC_HOURS,
                     TB_HELPLINE, SUGAR_HELPLINE,
-                    DISEASES_API, PRACTICES_API)
+                    DISEASES_API, PRACTICES_API, auth_header)
 
 logger = logging.getLogger(__name__)
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -102,7 +102,7 @@ TOOLS = [
 
 def _fetch_clinic_data() -> tuple[str, str, list, list]:
     try:
-        resp     = requests.get(DISEASES_API, timeout=5)
+        resp     = requests.get(DISEASES_API, timeout=5, headers=auth_header)
         diseases = resp.json()["data"]
         d_str    = "\n".join(f'  - {d["name"]} (id: {d["id"]})' for d in diseases)
     except Exception as e:
@@ -111,7 +111,7 @@ def _fetch_clinic_data() -> tuple[str, str, list, list]:
         d_str    = "\n".join(f'  - {d["name"]} (id: {d["id"]})' for d in diseases)
 
     try:
-        resp      = requests.get(PRACTICES_API, timeout=5)
+        resp      = requests.get(PRACTICES_API, timeout=5, headers = auth_header)
         practices = resp.json()["data"]
         p_lines   = []
         for p in practices:
