@@ -48,5 +48,6 @@ def update_template(template_id: int, body: TemplateIn):
 @router.delete("/{template_id}")
 def delete_template(template_id: int):
     with db_cursor() as cur:
+        cur.execute("UPDATE campaigns SET template_id=NULL WHERE template_id=?", (template_id,))
         cur.execute("DELETE FROM templates WHERE id=?", (template_id,))
     return {"status": "deleted"}
